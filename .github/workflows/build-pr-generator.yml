@@ -1,0 +1,50 @@
+name: Build PR generator
+
+on:
+  push:
+    paths:
+      - .github/ticker-update-trigger
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out generator branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/initial-generator
+          fetch-depth: 0
+
+      - name: Apply generated source update
+        run: |
+          python tools/apply_update_a.py
+          python tools/apply_update_b.py
+
+      - name: Test generated project
+        run: |
+          python -m unittest discover -s tests -v
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          html = Path('index.html').read_text(encoding='utf-8')
+          match = re.search(r'<script>(.*?)</script>', html, re.DOTALL)
+          if not match:
+              raise SystemExit('No inline script found')
+          Path('/tmp/app.js').write_text(match.group(1), encoding='utf-8')
+          PY
+          node --check /tmp/app.js
+
+      - name: Commit to draft PR branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add generator.py index.html tests/test_generator.py README.md
+          if git diff --cached --quiet; then
+            echo "No generated changes"
+          else
+            git commit -m "Add compact lamp ticker modes"
+            git push origin HEAD:agent/initial-generator
+          fi
