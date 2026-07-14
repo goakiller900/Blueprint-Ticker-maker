@@ -1,0 +1,1 @@
+apply compact lamp update
