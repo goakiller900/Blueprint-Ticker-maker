@@ -1,0 +1,625 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nixie Scrolling Banner Generator</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #111315;
+      --panel: #1a1d20;
+      --panel-2: #22262a;
+      --text: #f3f1eb;
+      --muted: #aaa79f;
+      --accent: #ff9b3d;
+      --accent-2: #ffbd72;
+      --border: #3b3e42;
+      --good: #86d993;
+      --bad: #ff8080;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at top, #252018 0, transparent 34rem),
+        var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+        "Segoe UI", sans-serif;
+    }
+
+    main {
+      width: min(1000px, calc(100% - 32px));
+      margin: 32px auto;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(1.7rem, 4vw, 2.7rem);
+      line-height: 1.05;
+    }
+
+    .subtitle {
+      margin: 0 0 24px;
+      color: var(--muted);
+      max-width: 74ch;
+    }
+
+    .panel {
+      background: color-mix(in srgb, var(--panel) 94%, transparent);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px;
+      box-shadow: 0 20px 60px rgb(0 0 0 / 25%);
+      margin-bottom: 18px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .field-message { grid-column: span 12; }
+    .field-speed { grid-column: span 6; }
+    .field-padding { grid-column: span 6; }
+
+    @media (max-width: 680px) {
+      .field-speed, .field-padding { grid-column: span 12; }
+    }
+
+    label {
+      display: block;
+      font-weight: 700;
+      margin-bottom: 7px;
+    }
+
+    input, textarea, button {
+      font: inherit;
+    }
+
+    input, textarea {
+      width: 100%;
+      color: var(--text);
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      padding: 11px 12px;
+      outline: none;
+    }
+
+    input:focus, textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgb(255 155 61 / 14%);
+    }
+
+    textarea {
+      min-height: 96px;
+      resize: vertical;
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    }
+
+    .hint {
+      display: block;
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: .88rem;
+    }
+
+    .buttons {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 18px;
+    }
+
+    button {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: var(--panel-2);
+      color: var(--text);
+      padding: 10px 15px;
+      border-radius: 9px;
+      cursor: pointer;
+      font-weight: 750;
+    }
+
+    button.primary {
+      border-color: #c9762c;
+      background: linear-gradient(#ffae60, #e7832d);
+      color: #1b120a;
+    }
+
+    button:hover { filter: brightness(1.08); }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+
+    .preview-wrap {
+      overflow-x: auto;
+      padding: 18px;
+      background: #090909;
+      border: 1px solid #3e2d20;
+      border-radius: 10px;
+    }
+
+    #preview {
+      display: inline-block;
+      min-width: max-content;
+      color: var(--accent-2);
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+      font-size: clamp(1rem, 3vw, 1.7rem);
+      letter-spacing: .12em;
+      text-shadow: 0 0 8px rgb(255 137 39 / 72%);
+      white-space: pre;
+    }
+
+    .stats {
+      display: flex;
+      gap: 18px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: .92rem;
+    }
+
+    .stats strong { color: var(--text); }
+
+    #status {
+      margin-top: 12px;
+      min-height: 1.4em;
+      color: var(--muted);
+    }
+
+    #status.good { color: var(--good); }
+    #status.bad { color: var(--bad); }
+
+    details {
+      margin-top: 14px;
+      color: var(--muted);
+    }
+
+    code {
+      color: var(--accent-2);
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Nixie Scrolling Banner Generator</h1>
+    <p class="subtitle">
+      Generates an importable Factorio 2.1 blueprint for the
+      <strong>Nixie Tubes</strong> mod. Every character gets its own alpha tube,
+      and the complete message rotates continuously.
+    </p>
+
+    <section class="panel">
+      <div class="grid">
+        <div class="field-message">
+          <label for="message">Message</label>
+          <input id="message" value="GOAKILLER900 IS GAY" maxlength="80">
+          <span class="hint">
+            Lowercase becomes uppercase. Supported: A–Z, 0–9, spaces and
+            <code>. ? ! @ [ ] { } ( ) / * - + % :</code>
+          </span>
+        </div>
+
+        <div class="field-speed">
+          <label for="seconds">Seconds per character shift</label>
+          <input id="seconds" type="number" min="0.0167" max="60" step="0.05" value="0.5">
+          <span class="hint">Factorio uses 60 ticks per second.</span>
+        </div>
+
+        <div class="field-padding">
+          <label for="padding">Blank tubes on each edge</label>
+          <input id="padding" type="number" min="0" max="10" step="1" value="1">
+          <span class="hint">These blanks become part of the scrolling loop.</span>
+        </div>
+      </div>
+
+      <div class="buttons">
+        <button class="primary" id="generate">Generate blueprint</button>
+        <button id="copy" disabled>Copy blueprint string</button>
+        <button id="download" disabled>Download .txt</button>
+        <button id="download-json" disabled>Download JSON</button>
+      </div>
+
+      <div id="status"></div>
+    </section>
+
+    <section class="panel">
+      <label>Animated preview</label>
+      <div class="preview-wrap"><span id="preview"></span></div>
+      <div class="stats">
+        <span>Tubes: <strong id="tube-count">–</strong></span>
+        <span>Frame deciders: <strong id="decider-count">–</strong></span>
+        <span>Total entities: <strong id="entity-count">–</strong></span>
+        <span>Blueprint characters: <strong id="string-size">–</strong></span>
+      </div>
+    </section>
+
+    <section class="panel">
+      <label for="output">Blueprint string</label>
+      <textarea id="output" readonly spellcheck="false"></textarea>
+      <details>
+        <summary>Why the blueprint becomes large</summary>
+        <p>
+          This proven design uses one frame-selection decider for every
+          character position in every frame. A banner of <em>N</em> tubes
+          therefore uses <em>N²</em> deciders. It is deliberately brute-force,
+          but it produces short, reliable neighbour-to-neighbour wiring.
+        </p>
+      </details>
+    </section>
+  </main>
+
+<script>
+"use strict";
+
+const FACTORIO_VERSION = 562954249109505n; // 2.1.11.1; copied from a working BP.
+const MAX_WIDTH = 100;
+
+const SIGNAL_NAMES = {
+  ".": "signal-letter-dot",
+  "?": "signal-question-mark",
+  "!": "signal-exclamation-mark",
+  "@": "signal-at",
+  "[": "signal-left-square-bracket",
+  "]": "signal-right-square-bracket",
+  "{": "signal-curopen",
+  "}": "signal-curclose",
+  "(": "signal-left-parenthesis",
+  ")": "signal-right-parenthesis",
+  "/": "signal-slash",
+  "*": "signal-multiplication",
+  "-": "signal-minus",
+  "+": "signal-plus",
+  "%": "signal-percent",
+  ":": "signal-colon"
+};
+
+const els = {
+  message: document.querySelector("#message"),
+  seconds: document.querySelector("#seconds"),
+  padding: document.querySelector("#padding"),
+  generate: document.querySelector("#generate"),
+  copy: document.querySelector("#copy"),
+  download: document.querySelector("#download"),
+  downloadJson: document.querySelector("#download-json"),
+  output: document.querySelector("#output"),
+  status: document.querySelector("#status"),
+  preview: document.querySelector("#preview"),
+  tubeCount: document.querySelector("#tube-count"),
+  deciderCount: document.querySelector("#decider-count"),
+  entityCount: document.querySelector("#entity-count"),
+  stringSize: document.querySelector("#string-size")
+};
+
+let lastBlueprint = null;
+let lastString = "";
+let previewTimer = null;
+let previewFrame = 0;
+let previewMessage = "";
+let previewMs = 500;
+
+function status(text, kind = "") {
+  els.status.textContent = text;
+  els.status.className = kind;
+}
+
+function signalNameFor(character) {
+  if (/^[A-Z0-9]$/.test(character)) {
+    return `signal-${character}`;
+  }
+  return SIGNAL_NAMES[character] ?? null;
+}
+
+function normalizeMessage(raw, edgePadding) {
+  const singleLine = raw.replace(/[\r\n\t]+/g, " ").toUpperCase().trim();
+  if (!singleLine) {
+    throw new Error("Enter a message first.");
+  }
+
+  for (const character of singleLine) {
+    if (character !== " " && signalNameFor(character) === null) {
+      throw new Error(`Unsupported character: ${JSON.stringify(character)}`);
+    }
+  }
+
+  const message = " ".repeat(edgePadding) + singleLine + " ".repeat(edgePadding);
+  if (message.length > MAX_WIDTH) {
+    throw new Error(
+      `The padded message is ${message.length} characters. ` +
+      `This version is limited to ${MAX_WIDTH}.`
+    );
+  }
+
+  return message;
+}
+
+function buildBlueprint(message, ticksPerStep) {
+  const width = message.length;
+  const frames = width;
+  const entities = [];
+  const wires = [];
+  let nextEntity = 1;
+
+  function addEntity(entity) {
+    const result = { ...entity, entity_number: nextEntity };
+    entities.push(result);
+    nextEntity += 1;
+    return result.entity_number;
+  }
+
+  const tubeNumbers = [];
+  for (let column = 0; column < width; column += 1) {
+    tubeNumbers.push(addEntity({
+      name: "nixie-tube-alpha",
+      position: { x: column + 0.5, y: 0 },
+      always_on: true
+    }));
+  }
+
+  const counter = addEntity({
+    name: "arithmetic-combinator",
+    position: { x: 0, y: 2.5 },
+    direction: 4,
+    control_behavior: {
+      arithmetic_conditions: {
+        first_signal: { type: "virtual", name: "signal-T" },
+        operation: "+",
+        second_constant: 1,
+        output_signal: { type: "virtual", name: "signal-T" }
+      }
+    }
+  });
+
+  const divider = addEntity({
+    name: "arithmetic-combinator",
+    position: { x: 2, y: 2.5 },
+    direction: 4,
+    control_behavior: {
+      arithmetic_conditions: {
+        first_signal: { type: "virtual", name: "signal-T" },
+        operation: "/",
+        second_constant: ticksPerStep,
+        output_signal: { type: "virtual", name: "signal-I" }
+      }
+    }
+  });
+
+  const modulo = addEntity({
+    name: "arithmetic-combinator",
+    position: { x: 4, y: 2.5 },
+    direction: 4,
+    control_behavior: {
+      arithmetic_conditions: {
+        first_signal: { type: "virtual", name: "signal-I" },
+        operation: "%",
+        second_constant: frames,
+        output_signal: { type: "virtual", name: "signal-I" }
+      }
+    }
+  });
+
+  wires.push([counter, 3, counter, 1]);
+  wires.push([counter, 4, divider, 2]);
+  wires.push([divider, 4, modulo, 2]);
+
+  const matrix = Array.from({ length: frames }, () => Array(width).fill(null));
+
+  for (let frame = 0; frame < frames; frame += 1) {
+    const displayed = message.slice(frame) + message.slice(0, frame);
+
+    for (let column = 0; column < width; column += 1) {
+      const character = displayed[column];
+      const blank = character === " ";
+      const outputSignal = blank ? "signal-A" : signalNameFor(character);
+
+      matrix[frame][column] = addEntity({
+        name: "decider-combinator",
+        position: { x: column + 0.5, y: 5.5 + frame * 2 },
+        direction: 0,
+        control_behavior: {
+          decider_conditions: {
+            conditions: [{
+              first_signal: { type: "virtual", name: "signal-I" },
+              comparator: "=",
+              constant: blank ? -1 : frame
+            }],
+            outputs: [{
+              signal: { type: "virtual", name: outputSignal },
+              copy_count_from_input: false,
+              constant: 1
+            }]
+          }
+        }
+      });
+    }
+  }
+
+  // Green input grid: short horizontal links plus one vertical spine.
+  for (let frame = 0; frame < frames; frame += 1) {
+    for (let column = 0; column < width - 1; column += 1) {
+      wires.push([matrix[frame][column], 2, matrix[frame][column + 1], 2]);
+    }
+  }
+  for (let frame = 0; frame < frames - 1; frame += 1) {
+    wires.push([matrix[frame][0], 2, matrix[frame + 1][0], 2]);
+  }
+  wires.push([modulo, 4, matrix[0][0], 2]);
+
+  // One isolated red output bus per display column.
+  for (let column = 0; column < width; column += 1) {
+    wires.push([tubeNumbers[column], 1, matrix[0][column], 3]);
+    for (let frame = 0; frame < frames - 1; frame += 1) {
+      wires.push([matrix[frame][column], 3, matrix[frame + 1][column], 3]);
+    }
+  }
+
+  return {
+    blueprint: {
+      item: "blueprint",
+      label: `${message.trim()} — Scrolling Nixie Banner`,
+      description:
+        `Generated ${width}-tube cyclic Nixie banner. ` +
+        `Shifts one character every ${ticksPerStep} ticks.`,
+      icons: [{
+        signal: { type: "item", name: "nixie-tube-alpha" },
+        index: 1
+      }],
+      entities,
+      wires,
+      // JSON has no BigInt. This value remains exactly representable in JS.
+      version: Number(FACTORIO_VERSION)
+    }
+  };
+}
+
+async function compressBlueprint(blueprint) {
+  if (!("CompressionStream" in window)) {
+    throw new Error(
+      "This browser lacks CompressionStream support. " +
+      "Use the included Python version instead."
+    );
+  }
+
+  const json = JSON.stringify(blueprint);
+  const source = new TextEncoder().encode(json);
+  const stream = new Blob([source])
+    .stream()
+    .pipeThrough(new CompressionStream("deflate"));
+  const compressed = new Uint8Array(await new Response(stream).arrayBuffer());
+
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let i = 0; i < compressed.length; i += chunkSize) {
+    binary += String.fromCharCode(...compressed.subarray(i, i + chunkSize));
+  }
+  return "0" + btoa(binary);
+}
+
+function startPreview(message, seconds) {
+  clearInterval(previewTimer);
+  previewMessage = message;
+  previewFrame = 0;
+  previewMs = Math.max(16, seconds * 1000);
+
+  const draw = () => {
+    els.preview.textContent =
+      previewMessage.slice(previewFrame) +
+      previewMessage.slice(0, previewFrame);
+    previewFrame = (previewFrame + 1) % previewMessage.length;
+  };
+
+  draw();
+  previewTimer = setInterval(draw, previewMs);
+}
+
+function downloadText(filename, text, mime = "text/plain;charset=utf-8") {
+  const blob = new Blob([text], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function generate() {
+  els.generate.disabled = true;
+  els.copy.disabled = true;
+  els.download.disabled = true;
+  els.downloadJson.disabled = true;
+  status("Generating…");
+
+  try {
+    const seconds = Number(els.seconds.value);
+    const padding = Number.parseInt(els.padding.value, 10);
+
+    if (!Number.isFinite(seconds) || seconds <= 0) {
+      throw new Error("Scroll speed must be greater than zero.");
+    }
+    if (!Number.isInteger(padding) || padding < 0 || padding > 10) {
+      throw new Error("Edge padding must be an integer from 0 through 10.");
+    }
+
+    const ticks = Math.max(1, Math.round(seconds * 60));
+    const message = normalizeMessage(els.message.value, padding);
+    const blueprint = buildBlueprint(message, ticks);
+    const blueprintString = await compressBlueprint(blueprint);
+
+    lastBlueprint = blueprint;
+    lastString = blueprintString;
+    els.output.value = blueprintString;
+
+    const width = message.length;
+    els.tubeCount.textContent = width.toLocaleString();
+    els.deciderCount.textContent = (width * width).toLocaleString();
+    els.entityCount.textContent =
+      blueprint.blueprint.entities.length.toLocaleString();
+    els.stringSize.textContent = blueprintString.length.toLocaleString();
+
+    startPreview(message, ticks / 60);
+
+    els.copy.disabled = false;
+    els.download.disabled = false;
+    els.downloadJson.disabled = false;
+
+    const warning = width > 40
+      ? " Large banner: import and placement may take a moment."
+      : "";
+
+    status(
+      `Ready: ${width} tubes, ${width * width} frame deciders, ` +
+      `${ticks} ticks per shift.${warning}`,
+      "good"
+    );
+  } catch (error) {
+    lastBlueprint = null;
+    lastString = "";
+    els.output.value = "";
+    status(error instanceof Error ? error.message : String(error), "bad");
+  } finally {
+    els.generate.disabled = false;
+  }
+}
+
+els.generate.addEventListener("click", generate);
+
+els.copy.addEventListener("click", async () => {
+  if (!lastString) return;
+
+  try {
+    await navigator.clipboard.writeText(lastString);
+    status("Blueprint string copied.", "good");
+  } catch {
+    els.output.focus();
+    els.output.select();
+    document.execCommand("copy");
+    status("Blueprint string selected and copied.", "good");
+  }
+});
+
+els.download.addEventListener("click", () => {
+  if (!lastString) return;
+  downloadText("nixie-scrolling-banner-blueprint.txt", lastString + "\n");
+});
+
+els.downloadJson.addEventListener("click", () => {
+  if (!lastBlueprint) return;
+  downloadText(
+    "nixie-scrolling-banner-blueprint.json",
+    JSON.stringify(lastBlueprint, null, 2) + "\n",
+    "application/json;charset=utf-8"
+  );
+});
+
+generate();
+</script>
+</body>
+</html>
