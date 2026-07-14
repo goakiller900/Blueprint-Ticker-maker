@@ -1,81 +1,150 @@
 # Blueprint Ticker Maker
 
-Generate importable scrolling **Nixie Tubes** banner blueprints for Factorio 2.1.
+Generate scrolling Factorio 2.1 banners as importable blueprint strings.
 
-The browser version runs entirely client-side: enter a message, choose the scroll speed and edge spacing, then copy the generated blueprint string into Factorio. No server and no upload are involved.
+The project currently supports:
 
-The generated design has been tested in-game with the [Nixie Tubes mod](https://mods.factorio.com/mod/nixie-tubes).
+- **Vanilla lamps — compact:** a 5×7 dot-matrix ticker using bit-packed row masks. This is the recommended lamp design.
+- **Vanilla lamps — compatibility:** the larger, simpler frame-memory design that was verified in-game first.
+- **Nixie Tubes:** one alpha Nixie tube per character cell. Requires the `nixie-tubes` mod.
+
+Everything runs locally. The browser page has no server and does not upload the message.
 
 ## Browser tool
 
-Open `index.html` locally in a modern browser, or publish the repository with GitHub Pages.
+Open `index.html` in a current Firefox, Chrome, or Edge release.
 
-1. Enter the banner text.
-2. Choose the number of seconds per character shift.
-3. Choose the blank tubes added to each edge.
-4. Select **Generate blueprint**.
-5. Copy or download the blueprint string and import it into Factorio.
+1. Choose an output mode.
+2. Enter the message.
+3. Configure the display.
+4. Generate and copy the blueprint string.
+5. Import it in Factorio.
 
-The browser needs support for `CompressionStream("deflate")`. Current Firefox, Chrome and Edge releases support it.
+The page uses the browser's standard `CompressionStream("deflate")` API to produce Factorio's zlib-compressed blueprint format.
 
-### GitHub Pages
+## Configurable options
 
-After the initial pull request is merged:
+Shared options:
 
-1. Open **Settings → Pages** in the repository.
-2. Under **Build and deployment**, choose **Deploy from a branch**.
-3. Select `main` and `/ (root)`.
-4. Save.
+- message
+- seconds per scroll step
+- left or right scrolling
+- display width
 
-The root `index.html` will then become the hosted generator.
+Lamp options:
 
-## Python command-line version
+- compact or compatibility architecture
+- 5×7 font
+- logical screen width
+- pixel scale from 1×1 through 4×4 lamps
+- character spacing
+- repeat gap
+- default, red, green, blue, yellow, pink, cyan, or white lamps
+- compact-ROM block width, or automatic near-square packing
+
+Nixie options:
+
+- character-cell display width
+- blank edge characters
+- scroll direction and speed
+
+## Why compact lamp mode is smaller
+
+The original working lamp prototype stored seven complete output rows for every pixel frame:
+
+```text
+frames × 7 decider combinators
+```
+
+Compact mode packs each row into a 30-bit integer. One frame decider can therefore output all seven row masks at once. A small arithmetic decoder under every logical display column extracts the correct bit:
+
+```text
+frames × ceil(display_width / 30) frame deciders
++ display_width arithmetic decoders
+```
+
+For the original 24×7 `GOAKILLER900 IS GAY` test:
+
+| Architecture | Lamps | Memory deciders | Column decoders | Total entities |
+|---|---:|---:|---:|---:|
+| Compatibility | 168 | 833 | 0 | 1,004 |
+| Compact | 168 | 119 | 24 | 314 |
+
+The exact frame count depends on the message, character spacing, and repeat gap.
+
+## Python command line
 
 Python 3.10 or newer is recommended.
 
-```powershell
-python generator.py "GOAKILLER900 IS GAY"
-```
-
-Custom speed, padding and output files:
+Compact vanilla-lamp ticker:
 
 ```powershell
 python generator.py "THE FACTORY MUST GROW" `
-  --seconds 0.35 `
-  --edge-spaces 2 `
-  --output factory-banner.txt `
-  --json factory-banner.json
+  --mode lamp-compact `
+  --width 30 `
+  --seconds 0.2 `
+  --direction left `
+  --character-spacing 1 `
+  --repeat-gap 8 `
+  --scale 1 `
+  --color yellow `
+  --output factory-ticker.txt `
+  --json factory-ticker.json
 ```
 
-## Supported characters
+Compatibility lamp mode:
 
-- `A-Z`
-- `0-9`
-- spaces
-- `. ? ! @ [ ] { } ( ) / * - + % :`
+```powershell
+python generator.py "HELLO WORLD" --mode lamp-compatible --width 24
+```
 
-Lowercase input is converted to uppercase. Tabs and line breaks become spaces.
+Nixie Tubes mode:
 
-## Blueprint size
+```powershell
+python generator.py "HELLO WORLD" `
+  --mode nixie `
+  --width 13 `
+  --edge-spaces 1 `
+  --seconds 0.5
+```
 
-For a padded banner width of `N`, the proven layout currently uses:
+## Supported font characters
 
-- `N` alpha Nixie tubes
-- `N²` frame-selection decider combinators
-- 3 arithmetic combinators for the clock
+Lamp mode supports:
 
-This is intentionally brute-force. It creates a predictable non-overlapping grid and keeps all circuit-wire connections within range, but long messages produce large blueprints.
+```text
+A-Z  0-9  space  . , ! ? - + : / ( ) = _
+```
 
-## Development
+Nixie mode supports letters, digits, spaces, and the virtual-signal punctuation mapped in `generator.py`.
 
-Run the tests with:
+Input is converted to uppercase and repeated whitespace is collapsed to one space.
 
-```bash
+## Size limits
+
+- Compact lamp width: up to 150 logical pixel columns.
+- Compatibility lamp width: up to 36 logical pixel columns.
+- Nixie width: up to 100 character cells.
+- Lamp pixel scale: 1 through 4.
+
+Long messages still create many frames. Compact mode makes each frame much cheaper, but a large display with a long message can still produce a large blueprint.
+
+## Testing
+
+Run:
+
+```powershell
 python -m unittest discover -s tests -v
 ```
 
-The project has no runtime Python dependencies outside the standard library.
+The tests verify:
 
-## License
+- the original 21-tube Nixie structure
+- compact and compatibility lamp generation
+- multi-segment compact displays
+- scaled pixels
+- left/right frame generation
+- circuit-wire distances
+- Base64/zlib blueprint round trips
 
-No license has been selected yet.
+GitHub Actions runs the Python tests and checks the browser JavaScript syntax.
