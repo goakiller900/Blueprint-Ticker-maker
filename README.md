@@ -8,7 +8,30 @@ The project currently supports:
 - **Vanilla lamps — compatibility:** the larger, simpler frame-memory design that was verified in-game first.
 - **Nixie Tubes:** one alpha Nixie tube per character cell. Requires the `nixie-tubes` mod.
 
-Everything runs locally. The browser page has no server and does not upload the message.
+Everything runs locally. The tools have no telemetry and do not upload the message.
+
+## Desktop application
+
+The `desktop/` folder contains a small, open-source Tkinter application with:
+
+- an animated preview;
+- all three generator modes;
+- copy and save buttons;
+- optional decoded JSON output;
+- no network, telemetry, advertisements, or update checker.
+
+Run from source:
+
+```powershell
+python desktop/app.py
+```
+
+Compiled Windows, Linux, and macOS builds are produced by
+`.github/workflows/build-desktop.yml`. Each compiled binary runs a bundled
+`--self-test` before GitHub uploads it as an Actions artifact.
+
+See [`desktop/README.md`](desktop/README.md), [`PRIVACY.md`](PRIVACY.md), and
+[`SECURITY.md`](SECURITY.md) for details.
 
 ## Browser tool
 
@@ -113,10 +136,10 @@ python generator.py "HELLO WORLD" `
 Lamp mode supports:
 
 ```text
-A-Z  0-9  space  . , ! ? - + : / ( ) = _
+A-Z  0-9  space  . , ! ? - + : ; / \ ( ) [ ] { } = _ ' " < > | * % @ #
 ```
 
-Nixie mode supports letters, digits, spaces, and the virtual-signal punctuation mapped in `generator.py`.
+Nixie mode supports letters, digits, spaces, and the virtual-signal punctuation mapped by the generator.
 
 Input is converted to uppercase and repeated whitespace is collapsed to one space.
 
@@ -131,10 +154,17 @@ Long messages still create many frames. Compact mode makes each frame much cheap
 
 ## Testing
 
-Run:
+Browser/CLI tests:
 
 ```powershell
 python -m unittest discover -s tests -v
+```
+
+Desktop tests:
+
+```powershell
+python -m unittest discover -s desktop/tests -v
+python desktop/app.py --self-test
 ```
 
 The tests verify:
@@ -146,5 +176,11 @@ The tests verify:
 - left/right frame generation
 - circuit-wire distances
 - Base64/zlib blueprint round trips
+- that the desktop runtime imports no network or subprocess modules
 
-GitHub Actions runs the Python tests and checks the browser JavaScript syntax.
+GitHub Actions runs the test suites, checks the browser JavaScript syntax, and
+builds standalone desktop applications for Windows, Linux, and macOS.
+
+## Licence
+
+MIT. See [`LICENSE`](LICENSE).
