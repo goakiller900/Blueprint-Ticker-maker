@@ -1,0 +1,63 @@
+name: Apply Display Studio source bundle
+
+on:
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.head_ref == 'agent/display-studio-features'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          token: ${{ github.token }}
+
+      - name: Unpack tested Display Studio source
+        shell: bash
+        run: |
+          cat tools/display-studio-bundle.part0* | base64 --decode > /tmp/display-studio.tar.gz
+          tar -xzf /tmp/display-studio.tar.gz -C .
+
+      - name: Run generator and desktop tests
+        shell: bash
+        run: |
+          python -m unittest discover -s desktop/tests -v
+          python desktop/app.py --self-test
+          python -m unittest discover -s tests -v
+          python -m compileall -q desktop generator.py
+
+      - name: Verify advanced CLI generation
+        shell: bash
+        run: |
+          python generator.py "HELLO WORLD" \
+            --mode lamp-static \
+            --width 32 \
+            --height 16 \
+            --pixel-width 2 \
+            --pixel-height 3 \
+            --layout compact-square \
+            --output /tmp/display-studio-blueprint.txt
+          test -s /tmp/display-studio-blueprint.txt
+
+      - name: Remove temporary transfer files
+        shell: bash
+        run: |
+          rm -f tools/display-studio-bundle.part0*
+          rm -f tools/display-studio-update.part00
+          rm -f tools/.display-studio-branch
+          rm -f .github/workflows/apply-display-studio.yml
+
+      - name: Commit tested feature source
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Add Display Studio features" || exit 0
+          git push origin HEAD:${{ github.head_ref }}
