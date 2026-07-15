@@ -1,0 +1,89 @@
+name: Build desktop application
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test generator
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run desktop tests
+        run: python -m unittest discover -s desktop/tests -v
+
+      - name: Compile Python source
+        run: python -m compileall -q desktop
+
+  build:
+    name: Build ${{ matrix.artifact }}
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            artifact: BlueprintTickerMaker-Windows-x64
+            executable: dist/BlueprintTickerMaker.exe
+            test_command: './dist/BlueprintTickerMaker.exe --self-test'
+          - os: ubuntu-latest
+            artifact: BlueprintTickerMaker-Linux-x64
+            executable: dist/BlueprintTickerMaker
+            test_command: './dist/BlueprintTickerMaker --self-test'
+          - os: macos-15
+            artifact: BlueprintTickerMaker-macOS-arm64
+            executable: dist/BlueprintTickerMaker.app
+            test_command: './dist/BlueprintTickerMaker.app/Contents/MacOS/BlueprintTickerMaker --self-test'
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pinned build dependency
+        run: python -m pip install --disable-pip-version-check -r desktop/requirements-build.txt
+
+      - name: Build standalone application
+        run: >
+          pyinstaller
+          --noconfirm
+          --clean
+          --onefile
+          --windowed
+          --name BlueprintTickerMaker
+          --paths desktop
+          desktop/app.py
+
+      - name: Run bundled self-test
+        shell: bash
+        run: ${{ matrix.test_command }}
+
+      - name: Upload compiled application
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.executable }}
+          if-no-files-found: error
+          retention-days: 30
