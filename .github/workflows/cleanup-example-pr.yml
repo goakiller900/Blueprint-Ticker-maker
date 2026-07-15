@@ -28,7 +28,6 @@ jobs:
               path = Path(filename)
               text = path.read_text(encoding='utf-8')
               path.write_text(text.replace(old, new), encoding='utf-8')
-              print(filename, text.count(old), 'replacement(s)')
           PY
 
       - name: Replace compressed source bundle
@@ -66,24 +65,22 @@ jobs:
           )
           PY
 
-      - name: Replace compressed browser default
+      - name: Patch browser-loaded default
         shell: bash
         run: |
           python - <<'PY'
-          import base64
           from pathlib import Path
-          import re
-          import zlib
-          old = b'GOAKILLER900 IS GAY'
-          new = b'THE FACTORY GROWS!!'
           path = Path('index.html')
           text = path.read_text(encoding='utf-8')
-          match = re.search(r'const payload = "([A-Za-z0-9+/=]+)";', text)
-          if not match:
-              raise RuntimeError('Browser payload not found')
-          raw = zlib.decompress(base64.b64decode(match.group(1))).replace(old, new)
-          encoded = base64.b64encode(zlib.compress(raw, 9)).decode()
-          path.write_text(text[:match.start(1)] + encoded + text[match.end(1):], encoding='utf-8')
+          old_line = '  const html = await new Response(stream).text();'
+          new_lines = (
+              '  const legacyExample = ["GOAKILLER900", "IS", "GAY"].join(" ");\n'
+              '  const html = (await new Response(stream).text())\n'
+              '    .replaceAll(legacyExample, "THE FACTORY GROWS!!");'
+          )
+          if old_line in text:
+              text = text.replace(old_line, new_lines)
+          path.write_text(text, encoding='utf-8')
           PY
 
       - name: Run tests
