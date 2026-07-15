@@ -1,0 +1,123 @@
+name: Clean public example
+
+on:
+  push:
+    paths:
+      - .cleanup-example-trigger
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/initial-generator
+          token: ${{ github.token }}
+
+      - name: Replace private test example
+        shell: bash
+        run: |
+          python - <<'PY'
+          from __future__ import annotations
+          import ast
+          import base64
+          from pathlib import Path
+          import re
+          import zlib
+
+          OLD = 'GOAKILLER900 IS GAY'
+          NEW = 'THE FACTORY GROWS!!'
+          root = Path('.')
+
+          # Replace all plain-text occurrences in tracked source/docs.
+          for path in root.rglob('*'):
+              if not path.is_file() or '.git' in path.parts:
+                  continue
+              try:
+                  text = path.read_text(encoding='utf-8')
+              except (UnicodeDecodeError, OSError):
+                  continue
+              if OLD in text:
+                  path.write_text(text.replace(OLD, NEW), encoding='utf-8')
+
+          # Replace occurrences inside the compressed source bundle.
+          payload_path = Path('tools/apply_update_a.py')
+          tree = ast.parse(payload_path.read_text(encoding='utf-8'))
+          payloads = None
+          for node in tree.body:
+              if isinstance(node, ast.Assign) and any(
+                  isinstance(target, ast.Name) and target.id == 'PAYLOADS'
+                  for target in node.targets
+              ):
+                  payloads = ast.literal_eval(node.value)
+                  break
+          if payloads is None:
+              raise RuntimeError('PAYLOADS not found')
+
+          cleaned = {}
+          for name, encoded in payloads.items():
+              raw = zlib.decompress(base64.b64decode(encoded))
+              raw = raw.replace(OLD.encode(), NEW.encode())
+              cleaned[name] = base64.b64encode(zlib.compress(raw, 9)).decode()
+
+          payload_path.write_text(
+              "from __future__ import annotations\n"
+              "import base64\n"
+              "import zlib\n"
+              "from pathlib import Path\n\n"
+              f"PAYLOADS = {cleaned!r}\n\n"
+              "for relative_path, encoded in PAYLOADS.items():\n"
+              "    path = Path(relative_path)\n"
+              "    path.parent.mkdir(parents=True, exist_ok=True)\n"
+              "    path.write_bytes(zlib.decompress(base64.b64decode(encoded)))\n"
+              "    print(f'written {path}')\n",
+              encoding='utf-8',
+          )
+
+          # Replace occurrences inside the compressed browser application.
+          index_path = Path('index.html')
+          index_text = index_path.read_text(encoding='utf-8')
+          match = re.search(r'const payload = "([A-Za-z0-9+/=]+)";', index_text)
+          if not match:
+              raise RuntimeError('Browser payload not found')
+          browser_raw = zlib.decompress(base64.b64decode(match.group(1)))
+          browser_raw = browser_raw.replace(OLD.encode(), NEW.encode())
+          browser_encoded = base64.b64encode(zlib.compress(browser_raw, 9)).decode()
+          index_text = index_text[:match.start(1)] + browser_encoded + index_text[match.end(1):]
+          index_path.write_text(index_text, encoding='utf-8')
+
+          # Verify public sources and decoded bundles are clean.
+          for path in root.rglob('*'):
+              if not path.is_file() or '.git' in path.parts:
+                  continue
+              try:
+                  text = path.read_text(encoding='utf-8')
+              except (UnicodeDecodeError, OSError):
+                  continue
+              if OLD in text:
+                  raise RuntimeError(f'Old example remains in {path}')
+
+          for encoded in cleaned.values():
+              if OLD.encode() in zlib.decompress(base64.b64decode(encoded)):
+                  raise RuntimeError('Old example remains in source payload')
+          if OLD.encode() in browser_raw:
+              raise RuntimeError('Old example remains in browser payload')
+          PY
+
+      - name: Run tests
+        run: |
+          python -m unittest discover -s tests -v
+          python -m unittest discover -s desktop/tests -v
+          python desktop/app.py --self-test
+
+      - name: Commit cleanup to PR branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Replace private joke example" || exit 0
+          git push origin HEAD:agent/initial-generator
