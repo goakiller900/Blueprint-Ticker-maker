@@ -7,8 +7,25 @@ permissions:
   contents: write
 
 jobs:
+  diagnose:
+    if: github.head_ref == 'agent/display-studio-features'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check transfer chunk integrity
+        shell: bash
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          mkdir -p /tmp/chunks
+          for part in 00 01 02 03 04 05; do
+            url="https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${HEAD_SHA}/tools/display-studio-bundle.part${part}"
+            curl --fail --silent --show-error --location "$url" -o "/tmp/chunks/part${part}"
+            echo "part${part} size=$(wc -c < "/tmp/chunks/part${part}") sha=$(sha256sum "/tmp/chunks/part${part}" | cut -d' ' -f1)"
+          done
+
   apply:
     if: github.head_ref == 'agent/display-studio-features'
+    needs: diagnose
     runs-on: ubuntu-latest
 
     steps:
