@@ -1,22 +1,19 @@
 name: Extract browser source
 
 on:
-  push:
-    branches:
-      - fix/right-scroll-direction
-    paths:
-      - .github/workflows/extract-browser-source.yml
+  pull_request:
 
 permissions:
   contents: write
 
 jobs:
   extract:
+    if: github.head_ref == 'fix/right-scroll-direction'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: fix/right-scroll-direction
+          ref: ${{ github.head_ref }}
           token: ${{ github.token }}
 
       - name: Decode packed browser application
@@ -40,4 +37,4 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add tools/browser-source-debug.html
           git commit -m "Temporarily expose packed browser source" || exit 0
-          git push origin HEAD:fix/right-scroll-direction
+          git push origin HEAD:${{ github.head_ref }}
