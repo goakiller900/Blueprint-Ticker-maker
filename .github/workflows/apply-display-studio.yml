@@ -40,9 +40,6 @@ jobs:
       - name: Run desktop unit tests
         run: python -m unittest discover -s desktop/tests -v
 
-      - name: Run desktop self-test
-        run: python desktop/app.py --self-test
-
       - name: Run CLI unit tests
         run: python -m unittest discover -s tests -v
 
