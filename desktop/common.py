@@ -106,9 +106,11 @@ def visible_pixel_frame(
     width: int,
     direction: Direction,
 ) -> list[tuple[int, ...]]:
-    step = 1 if direction == "left" else -1
+    # Direction changes the scrolling offset, not the left-to-right order of
+    # the display columns. Using a negative column step mirrors the text.
+    offset = frame if direction == "left" else -frame
     return [
-        stream[(frame + step * column) % len(stream)]
+        stream[(offset + column) % len(stream)]
         for column in range(width)
     ]
 
@@ -119,9 +121,11 @@ def visible_text_frame(
     width: int,
     direction: Direction,
 ) -> str:
-    step = 1 if direction == "left" else -1
+    # Preserve normal character order while moving the viewport in the
+    # opposite direction for right-scrolling text.
+    offset = frame if direction == "left" else -frame
     return "".join(
-        ring[(frame + step * column) % len(ring)]
+        ring[(offset + column) % len(ring)]
         for column in range(width)
     )
 
