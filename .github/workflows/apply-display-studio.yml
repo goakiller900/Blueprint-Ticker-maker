@@ -18,10 +18,21 @@ jobs:
           ref: ${{ github.head_ref }}
           token: ${{ github.token }}
 
-      - name: Unpack tested Display Studio source
+      - name: Reassemble and verify tested source bundle
         shell: bash
         run: |
-          cat tools/display-studio-bundle.part0* | base64 --decode > /tmp/display-studio.tar.gz
+          : > /tmp/display-studio.b64
+          for part in 00 01 02 03 04; do
+            file="tools/display-studio-bundle.part${part}"
+            test "$(wc -c < "$file")" -ge 6000
+            head -c 6000 "$file" >> /tmp/display-studio.b64
+          done
+          file="tools/display-studio-bundle.part05"
+          test "$(wc -c < "$file")" -ge 1752
+          head -c 1752 "$file" >> /tmp/display-studio.b64
+          echo "fa98bbfd6023503eb84a9df098dfcb8f900898d5985f169d0deacf3e61f0a996  /tmp/display-studio.b64" | sha256sum --check
+          base64 --decode /tmp/display-studio.b64 > /tmp/display-studio.tar.gz
+          echo "86d029ac63b7c836062b4d22dffe172bd9f40149e4aa47a79b23cb0ae0358a46  /tmp/display-studio.tar.gz" | sha256sum --check
           tar -xzf /tmp/display-studio.tar.gz -C .
 
       - name: Run generator and desktop tests
