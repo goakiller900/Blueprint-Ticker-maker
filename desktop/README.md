@@ -1,7 +1,20 @@
 # Desktop application
 
-`desktop/app.py` is a small cross-platform Tkinter application for Blueprint
-Ticker Maker.
+`desktop/app.py` is the full Blueprint Ticker Maker Display Studio.
+
+## Features
+
+- static and animated vanilla-lamp displays;
+- static and animated alpha Nixie displays;
+- continuous, one-shot, and bouncing animation;
+- independent logical display width/height;
+- independent physical pixel width/height from 1 through 8 lamps;
+- multiline static text, alignment, spacing, and padding;
+- selectable compact circuit/ROM placement;
+- live preview and detailed size/entity statistics;
+- presets and save/load project files;
+- 5×7 custom-font editor with JSON import/export;
+- blueprint-book export.
 
 ## Safety properties
 
@@ -12,10 +25,9 @@ The runtime application:
 - imports no network or subprocess modules;
 - does not inspect Factorio saves or configuration;
 - writes files only after the user chooses a destination in a Save dialog;
-- produces plain Factorio blueprint strings and optional decoded JSON.
+- produces plain Factorio blueprint strings, blueprint books, project JSON, font JSON, and optional decoded blueprint JSON.
 
-The unit tests include a static import check for common network and process
-modules.
+The unit tests include a static import check for common network and process modules.
 
 ## Run from source
 
@@ -33,35 +45,16 @@ python desktop/app.py --self-test
 
 ## Local executable build
 
-Install the pinned build dependency:
-
 ```powershell
 python -m pip install -r desktop/requirements-build.txt
-```
-
-Build:
-
-```powershell
 pyinstaller --noconfirm --clean --onefile --windowed `
   --name BlueprintTickerMaker `
   --paths desktop `
   desktop/app.py
 ```
 
-The executable is written to `dist/`.
+The executable is written to `dist/`. PyInstaller is not a cross-compiler, so each operating system is built on its matching GitHub runner.
 
-PyInstaller is not a cross-compiler. Build Windows on Windows, Linux on Linux,
-and macOS on macOS.
+## GitHub builds and Releases
 
-## GitHub builds
-
-`.github/workflows/build-desktop.yml`:
-
-1. runs all desktop unit tests;
-2. compiles the Python source;
-3. builds standalone applications on Windows, Linux, and macOS;
-4. runs the bundled application's `--self-test`;
-5. uploads each compiled application as a GitHub Actions artifact.
-
-The workflow uses only official GitHub actions plus the pinned PyInstaller
-package from PyPI.
+`.github/workflows/build-desktop.yml` runs tests, compiles the source, builds Windows/Linux/macOS applications, runs each bundled `--self-test`, uploads Actions artifacts, updates the rolling **Latest automatic build** release on successful `main` builds, and creates permanent releases for `v*` tags.

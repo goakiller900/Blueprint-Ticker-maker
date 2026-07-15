@@ -1,13 +1,30 @@
-"""Static signal, colour, and 5×7 font data."""
-
+"""Static signal, colour, preset, and 5×7 font data."""
 from __future__ import annotations
 
 FACTORIO_VERSION = 562954249109505
 
 MODE_LABELS = {
-    "lamp-compact": "Vanilla lamps — compact",
-    "lamp-compatible": "Vanilla lamps — compatibility",
-    "nixie": "Nixie Tubes",
+    "lamp-compact": "Vanilla lamps — scrolling compact",
+    "lamp-compatible": "Vanilla lamps — scrolling compatibility",
+    "lamp-static": "Vanilla lamps — static sign",
+    "nixie": "Nixie Tubes — scrolling",
+    "nixie-static": "Nixie Tubes — static sign",
+}
+
+ANIMATION_LABELS = {
+    "loop": "Continuous loop",
+    "once": "Scroll once and stop",
+    "bounce": "Bounce left/right",
+    "static": "Static",
+}
+
+CIRCUIT_LAYOUT_LABELS = {
+    "compact-square": "Compact square",
+    "below": "Below display",
+    "above": "Above display",
+    "left": "Left of display",
+    "right": "Right of display",
+    "strip": "Long thin strip",
 }
 
 LAMP_COLORS: dict[str, dict[str, float]] = {
@@ -21,29 +38,24 @@ LAMP_COLORS: dict[str, dict[str, float]] = {
     "white": {"r": 1.0, "g": 1.0, "b": 1.0, "a": 1.0},
 }
 
-ROW_SIGNALS = [f"signal-{letter}" for letter in "ABCDEFG"]
+# Compact mode uses one virtual signal for every logical display row. Avoid I/T,
+# which are reserved for the frame clock.
+ROW_SIGNALS = [
+    *(f"signal-{letter}" for letter in "ABCDEFGHJKLMNOPQRSUVWXYZ"),
+    *(f"signal-{n}" for n in range(10)),
+][:30]
+
 COMPAT_COLUMN_SIGNALS = (
     [f"signal-{number}" for number in range(10)]
     + [f"signal-{letter}" for letter in "ABCDEFGHIJKLMNOPQRSTUVWXYZ"]
 )
 
 NIXIE_SIGNAL_NAMES = {
-    ".": "signal-letter-dot",
-    "?": "signal-question-mark",
-    "!": "signal-exclamation-mark",
-    "@": "signal-at",
-    "[": "signal-left-square-bracket",
-    "]": "signal-right-square-bracket",
-    "{": "signal-curopen",
-    "}": "signal-curclose",
-    "(": "signal-left-parenthesis",
-    ")": "signal-right-parenthesis",
-    "/": "signal-slash",
-    "*": "signal-multiplication",
-    "-": "signal-minus",
-    "+": "signal-plus",
-    "%": "signal-percent",
-    ":": "signal-colon",
+    ".": "signal-letter-dot", "?": "signal-question-mark", "!": "signal-exclamation-mark",
+    "@": "signal-at", "[": "signal-left-square-bracket", "]": "signal-right-square-bracket",
+    "{": "signal-curopen", "}": "signal-curclose", "(": "signal-left-parenthesis",
+    ")": "signal-right-parenthesis", "/": "signal-slash", "*": "signal-multiplication",
+    "-": "signal-minus", "+": "signal-plus", "%": "signal-percent", ":": "signal-colon",
 }
 
 FONT_5X7: dict[str, tuple[str, ...]] = {
@@ -83,7 +95,7 @@ FONT_5X7: dict[str, tuple[str, ...]] = {
     "7": ("11111","00001","00010","00100","01000","01000","01000"),
     "8": ("01110","10001","10001","01110","10001","10001","01110"),
     "9": ("01110","10001","10001","01111","00001","00001","01110"),
-    " ": ("00000","00000","00000","00000","00000","00000","00000"),
+    " ": ("00000",)*7,
     ".": ("00000","00000","00000","00000","00000","00110","00110"),
     ",": ("00000","00000","00000","00000","00110","00110","00100"),
     "!": ("00100","00100","00100","00100","00100","00000","00100"),
@@ -103,12 +115,37 @@ FONT_5X7: dict[str, tuple[str, ...]] = {
     "=": ("00000","11111","00000","11111","00000","00000","00000"),
     "_": ("00000","00000","00000","00000","00000","00000","11111"),
     "'": ("00100","00100","00000","00000","00000","00000","00000"),
-    "\"": ("01010","01010","00000","00000","00000","00000","00000"),
+    '"': ("01010","01010","00000","00000","00000","00000","00000"),
     "<": ("00010","00100","01000","10000","01000","00100","00010"),
     ">": ("01000","00100","00010","00001","00010","00100","01000"),
-    "|": ("00100","00100","00100","00100","00100","00100","00100"),
+    "|": ("00100",)*7,
     "*": ("00000","10101","01110","11111","01110","10101","00000"),
     "%": ("11001","11010","00100","01000","10110","00110","00000"),
     "@": ("01110","10001","10111","10101","10111","10000","01111"),
     "#": ("01010","11111","01010","01010","11111","01010","00000"),
+}
+
+BUILTIN_PRESETS = {
+    "Standard ticker 24×7": {
+        "mode": "lamp-compact", "display_width": 24, "display_height": 7,
+        "pixel_width": 1, "pixel_height": 1, "seconds_per_step": 0.2,
+        "circuit_layout": "compact-square",
+    },
+    "Large billboard 48×14": {
+        "mode": "lamp-compact", "display_width": 48, "display_height": 14,
+        "pixel_width": 2, "pixel_height": 2, "seconds_per_step": 0.15,
+        "circuit_layout": "below",
+    },
+    "Wide station sign": {
+        "mode": "lamp-static", "display_width": 60, "display_height": 9,
+        "pixel_width": 1, "pixel_height": 2, "horizontal_align": "center",
+    },
+    "Compact warning sign": {
+        "mode": "lamp-static", "display_width": 24, "display_height": 7,
+        "pixel_width": 1, "pixel_height": 1, "lamp_color": "red",
+    },
+    "Nixie ticker": {
+        "mode": "nixie", "display_width": 16, "seconds_per_step": 0.5,
+        "nixie_edge_spaces": 2,
+    },
 }

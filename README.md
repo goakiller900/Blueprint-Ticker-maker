@@ -1,24 +1,37 @@
 # Blueprint Ticker Maker
 
-Generate scrolling Factorio 2.1 banners as importable blueprint strings.
+Generate Factorio 2.1 lamp displays, scrolling tickers, static signs, Nixie displays, and blueprint books as importable blueprint strings.
 
-The project currently supports:
+Everything in the desktop application and Python generator runs locally. There is no telemetry and messages are never uploaded.
 
-- **Vanilla lamps — compact:** a 5×7 dot-matrix ticker using bit-packed row masks. This is the recommended lamp design.
-- **Vanilla lamps — compatibility:** the larger, simpler frame-memory design that was verified in-game first.
-- **Nixie Tubes:** one alpha Nixie tube per character cell. Requires the `nixie-tubes` mod.
+## Display modes
 
-Everything runs locally. The tools have no telemetry and do not upload the message.
+- **Vanilla lamps — scrolling compact:** bit-packed memory and per-column decoders; recommended for animated lamp displays.
+- **Vanilla lamps — scrolling compatibility:** larger frame-memory architecture kept as a simple fallback.
+- **Vanilla lamps — static sign:** no animation clock; supports multiline signs.
+- **Nixie Tubes — scrolling:** alpha Nixie ticker; requires the `nixie-tubes` mod.
+- **Nixie Tubes — static sign:** fixed Nixie text with a tiny per-cell signal source.
 
-## Desktop application
+## Desktop Display Studio
 
-The `desktop/` folder contains a small, open-source Tkinter application with:
+The cross-platform Tkinter application in `desktop/` includes:
 
-- an animated preview;
-- all three generator modes;
-- copy and save buttons;
-- optional decoded JSON output;
-- no network, telemetry, advertisements, or update checker.
+- continuous, one-shot, and bouncing scrolling;
+- left/right direction without mirroring the text;
+- configurable repeat pauses and full-message pauses;
+- independent logical **display width and height**;
+- independent **pixel width and pixel height** from 1 to 8 lamps per logical pixel;
+- character spacing, start padding, end padding, and loop gap;
+- top/middle/bottom and left/center/right alignment;
+- multiline static lamp signs;
+- compact, above, below, left, right, and strip circuit/ROM layouts;
+- live animated preview;
+- entity count, footprint, frame count, blueprint size, and large-build warnings;
+- built-in presets;
+- save/load project files;
+- a clickable 5×7 custom-font editor with JSON import/export;
+- variant blueprint-book export;
+- plain blueprint string and decoded JSON export.
 
 Run from source:
 
@@ -26,161 +39,117 @@ Run from source:
 python desktop/app.py
 ```
 
-Compiled Windows, Linux, and macOS builds are produced by
-`.github/workflows/build-desktop.yml`. Each compiled binary runs a bundled
-`--self-test` before GitHub uploads it as an Actions artifact.
+Compiled Windows, Linux, and macOS builds are produced by `.github/workflows/build-desktop.yml`. Successful `main` builds update the rolling **Latest automatic build** GitHub Release, while `v*` tags create permanent versioned releases.
 
-See [`desktop/README.md`](desktop/README.md), [`PRIVACY.md`](PRIVACY.md), and
-[`SECURITY.md`](SECURITY.md) for details.
+## Variable display and lamp dimensions
 
-## Browser tool
-
-Open `index.html` in a current Firefox, Chrome, or Edge release.
-
-1. Choose an output mode.
-2. Enter the message.
-3. Configure the display.
-4. Generate and copy the blueprint string.
-5. Import it in Factorio.
-
-The page uses the browser's standard `CompressionStream("deflate")` API to produce Factorio's zlib-compressed blueprint format.
-
-## Configurable options
-
-Shared options:
-
-- message
-- seconds per scroll step
-- left or right scrolling
-- display width
-
-Lamp options:
-
-- compact or compatibility architecture
-- 5×7 font
-- logical screen width
-- pixel scale from 1×1 through 4×4 lamps
-- character spacing
-- repeat gap
-- default, red, green, blue, yellow, pink, cyan, or white lamps
-- compact-ROM block width, or automatic near-square packing
-
-Nixie options:
-
-- character-cell display width
-- blank edge characters
-- scroll direction and speed
-
-## Why compact lamp mode is smaller
-
-The original working lamp prototype stored seven complete output rows for every pixel frame:
+Logical display dimensions and physical pixel dimensions are separate. For example:
 
 ```text
-frames × 7 decider combinators
+Logical display: 40 × 14 pixels
+Pixel size:       2 × 3 lamps
+Physical screen:  80 × 42 lamps
 ```
 
-Compact mode packs each row into a 30-bit integer. One frame decider can therefore output all seven row masks at once. A small arithmetic decoder under every logical display column extracts the correct bit:
+This allows very wide, very tall, stretched, or oversized billboard pixels without forcing square pixels.
 
-```text
-frames × ceil(display_width / 30) frame deciders
-+ display_width arithmetic decoders
+## Animation behaviour
+
+Scrolling modes support:
+
+- continuous loop;
+- scroll once and stop;
+- bounce back and forth;
+- blank start/end padding;
+- a pause at the end of the animation cycle;
+- an optional centered full-message pause when the complete message fits on screen.
+
+## Static signs
+
+Lamp static mode can render multiple lines into any configured logical width/height. Alignment and line spacing control where the 5×7 text is placed. A single constant signal drives the finished matrix, so there is no frame memory or clock.
+
+## Custom fonts
+
+The built-in font is 5×7, but any character can be overridden or added with the desktop font editor. Custom glyphs are stored inside project files and can also be imported/exported as JSON.
+
+A font JSON object maps one character to seven five-bit rows:
+
+```json
+{
+  "€": [
+    "11111",
+    "10000",
+    "11110",
+    "10000",
+    "11111",
+    "00000",
+    "00000"
+  ]
+}
 ```
 
-For the original 24×7 `THE FACTORY GROWS!!` test:
+## Project files and presets
 
-| Architecture | Lamps | Memory deciders | Column decoders | Total entities |
-|---|---:|---:|---:|---:|
-| Compatibility | 168 | 833 | 0 | 1,004 |
-| Compact | 168 | 119 | 24 | 314 |
+Project JSON saves the complete generator configuration, including custom glyphs. Built-in presets provide quick starting points for common ticker, billboard, warning-sign, station-sign, and Nixie layouts.
 
-The exact frame count depends on the message, character spacing, and repeat gap.
+## Blueprint books
+
+The desktop app and CLI can export a Factorio blueprint book containing useful variants of the current configuration. Lamp projects include static, compact scrolling, and—when the width allows it—compatibility scrolling variants. Nixie projects include static and scrolling variants.
 
 ## Python command line
 
 Python 3.10 or newer is recommended.
 
-Compact vanilla-lamp ticker:
-
 ```powershell
 python generator.py "THE FACTORY MUST GROW" `
   --mode lamp-compact `
-  --width 30 `
-  --seconds 0.2 `
+  --animation bounce `
+  --width 40 `
+  --height 14 `
+  --pixel-width 2 `
+  --pixel-height 3 `
   --direction left `
-  --character-spacing 1 `
-  --repeat-gap 8 `
-  --scale 1 `
-  --color yellow `
-  --output factory-ticker.txt `
-  --json factory-ticker.json
+  --start-padding 40 `
+  --end-padding 40 `
+  --pause 1.5 `
+  --layout compact-square `
+  --output factory-display.txt
 ```
 
-Compatibility lamp mode:
+Static multiline sign:
 
 ```powershell
-python generator.py "HELLO WORLD" --mode lamp-compatible --width 24
+python generator.py "ASSEMBLY\nAREA 4" `
+  --mode lamp-static `
+  --animation static `
+  --width 40 `
+  --height 16 `
+  --pixel-width 2 `
+  --pixel-height 2
 ```
 
-Nixie Tubes mode:
+Add `--book` to export a variant blueprint book instead of a single blueprint.
 
-```powershell
-python generator.py "HELLO WORLD" `
-  --mode nixie `
-  --width 13 `
-  --edge-spaces 1 `
-  --seconds 0.5
-```
+## Browser tool
 
-## Supported font characters
-
-Lamp mode supports:
-
-```text
-A-Z  0-9  space  . , ! ? - + : ; / \ ( ) [ ] { } = _ ' " < > | * % @ #
-```
-
-Nixie mode supports letters, digits, spaces, and the virtual-signal punctuation mapped by the generator.
-
-Input is converted to uppercase and repeated whitespace is collapsed to one space.
-
-## Size limits
-
-- Compact lamp width: up to 150 logical pixel columns.
-- Compatibility lamp width: up to 36 logical pixel columns.
-- Nixie width: up to 100 character cells.
-- Lamp pixel scale: 1 through 4.
-
-Long messages still create many frames. Compact mode makes each frame much cheaper, but a large display with a long message can still produce a large blueprint.
+`index.html` remains a lightweight standalone browser generator for the original ticker workflows. The desktop application and CLI contain the complete Display Studio feature set described above.
 
 ## Testing
 
-Browser/CLI tests:
-
 ```powershell
 python -m unittest discover -s tests -v
-```
-
-Desktop tests:
-
-```powershell
 python -m unittest discover -s desktop/tests -v
 python desktop/app.py --self-test
 ```
 
-The tests verify:
+Tests cover known compact/compatibility structures, static and Nixie modes, variable physical pixel dimensions, all compact circuit layouts, animation behaviours, right-scroll orientation, custom fonts, project round trips, blueprint books, Base64/zlib round trips, wire distances, and offline-runtime import restrictions.
 
-- the original 21-tube Nixie structure
-- compact and compatibility lamp generation
-- multi-segment compact displays
-- scaled pixels
-- left/right frame generation
-- circuit-wire distances
-- Base64/zlib blueprint round trips
-- that the desktop runtime imports no network or subprocess modules
+## Safety
 
-GitHub Actions runs the test suites, checks the browser JavaScript syntax, and
-builds standalone desktop applications for Windows, Linux, and macOS.
+The desktop runtime has no network, subprocess, telemetry, advertisement, or automatic-update code. It does not inspect Factorio saves. Files are written only when the user explicitly chooses a destination in a Save dialog.
+
+See `PRIVACY.md`, `SECURITY.md`, and `desktop/README.md` for more details.
 
 ## Licence
 
-MIT. See [`LICENSE`](LICENSE).
+MIT. See `LICENSE`.
