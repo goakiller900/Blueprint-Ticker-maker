@@ -1,0 +1,79 @@
+name: Repair browser right-scroll direction
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/repair-browser-direction.yml
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ github.token }}
+
+      - name: Patch packed browser application
+        shell: bash
+        run: |
+          node <<'JS'
+          const fs = require('fs');
+          const zlib = require('zlib');
+
+          const path = 'index.html';
+          let index = fs.readFileSync(path, 'utf8');
+          const payloadMatch = index.match(/const payload = "([A-Za-z0-9+/=]+)";/);
+          if (!payloadMatch) throw new Error('Browser payload not found');
+
+          let html = zlib.inflateSync(Buffer.from(payloadMatch[1], 'base64')).toString('utf8');
+          const oldStepPattern = /const\s+step\s*=\s*direction\s*===\s*["']left["']\s*\?\s*1\s*:\s*-1\s*;/g;
+          const mirroredColumnPattern = /frame\s*\+\s*step\s*\*\s*column/g;
+
+          const stepMatches = html.match(oldStepPattern)?.length ?? 0;
+          const columnMatches = html.match(mirroredColumnPattern)?.length ?? 0;
+          console.log(`Found ${stepMatches} direction-step expression(s)`);
+          console.log(`Found ${columnMatches} mirrored-column expression(s)`);
+
+          if (stepMatches < 2 || columnMatches < 2) {
+            const interesting = html
+              .split('\n')
+              .filter(line => /step\s*\*\s*column|direction.*left/i.test(line))
+              .slice(0, 30)
+              .join('\n');
+            console.log(interesting);
+            throw new Error('Unexpected packed browser source; refusing an unsafe partial patch');
+          }
+
+          html = html
+            .replace(oldStepPattern, 'const offset = direction === "left" ? frame : -frame;')
+            .replace(mirroredColumnPattern, 'offset + column');
+
+          if (/step\s*\*\s*column/.test(html)) {
+            throw new Error('Mirrored right-scroll expression remains after patch');
+          }
+
+          const packed = zlib.deflateSync(Buffer.from(html, 'utf8'), {level: 9}).toString('base64');
+          index = index.slice(0, payloadMatch.index + payloadMatch[0].indexOf(payloadMatch[1]))
+            + packed
+            + index.slice(payloadMatch.index + payloadMatch[0].indexOf(payloadMatch[1]) + payloadMatch[1].length);
+          fs.writeFileSync(path, index);
+          JS
+
+      - name: Commit repaired browser build
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          if git diff --cached --quiet; then
+            echo "No browser changes were necessary"
+          else
+            git commit -m "Fix browser right-scroll orientation"
+            git push origin HEAD:main
+          fi
