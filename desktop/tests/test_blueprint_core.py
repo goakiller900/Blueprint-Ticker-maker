@@ -15,6 +15,7 @@ from blueprint_core import (  # noqa: E402
     generate,
     max_wire_distance,
 )
+from common import visible_pixel_frame, visible_text_frame  # noqa: E402
 
 
 class BlueprintCoreTests(unittest.TestCase):
@@ -62,6 +63,29 @@ class BlueprintCoreTests(unittest.TestCase):
         )
         self.assertEqual(result.stats["lamps"], 60 * 7 * 4)
         self.assertLessEqual(max_wire_distance(result.blueprint), 9.0)
+
+    def test_right_scroll_preserves_text_orientation(self) -> None:
+        ring = "THE FACTORY "
+        width = len(ring)
+
+        self.assertEqual(
+            visible_text_frame(ring, 0, width, "right"),
+            ring,
+        )
+        self.assertEqual(
+            visible_text_frame(ring, 1, width, "right"),
+            ring[-1] + ring[:-1],
+        )
+
+        stream = [(number,) for number in range(6)]
+        self.assertEqual(
+            visible_pixel_frame(stream, 0, 6, "right"),
+            stream,
+        )
+        self.assertEqual(
+            visible_pixel_frame(stream, 1, 6, "right"),
+            [stream[-1], *stream[:-1]],
+        )
 
     def test_blueprint_round_trip(self) -> None:
         result = generate(TickerConfig(message="THE FACTORY MUST GROW"))

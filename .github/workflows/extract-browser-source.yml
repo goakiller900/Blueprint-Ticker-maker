@@ -1,0 +1,40 @@
+name: Extract browser source
+
+on:
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  extract:
+    if: github.head_ref == 'agent/initial-generator'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          token: ${{ github.token }}
+
+      - name: Decode packed browser application
+        shell: bash
+        run: |
+          node <<'JS'
+          const fs = require('fs');
+          const zlib = require('zlib');
+          const index = fs.readFileSync('index.html', 'utf8');
+          const match = index.match(/const payload = "([A-Za-z0-9+/=]+)";/);
+          if (!match) throw new Error('Browser payload not found');
+          const html = zlib.inflateSync(Buffer.from(match[1], 'base64')).toString('utf8');
+          fs.mkdirSync('tools', {recursive: true});
+          fs.writeFileSync('tools/browser-source-debug.html', html);
+          JS
+
+      - name: Commit decoded source
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tools/browser-source-debug.html
+          git commit -m "Temporarily expose packed browser source" || exit 0
+          git push origin HEAD:${{ github.head_ref }}
