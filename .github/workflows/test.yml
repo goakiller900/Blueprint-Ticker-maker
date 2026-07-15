@@ -23,6 +23,25 @@ jobs:
       - name: Run generator tests
         run: python -m unittest discover -s tests -v
 
+      - name: Show packed browser scroll implementation
+        shell: bash
+        run: |
+          node <<'JS'
+          const fs = require('fs');
+          const zlib = require('zlib');
+          const index = fs.readFileSync('index.html', 'utf8');
+          const match = index.match(/const payload = "([A-Za-z0-9+/=]+)";/);
+          if (!match) throw new Error('Browser payload not found');
+          const html = zlib.inflateSync(Buffer.from(match[1], 'base64')).toString('utf8');
+          const lines = html.split('\n');
+          for (let i = 0; i < lines.length; i++) {
+            if (/visible.*frame|step \* column|direction.*left.*right/i.test(lines[i])) {
+              console.log(`--- context around line ${i + 1} ---`);
+              console.log(lines.slice(Math.max(0, i - 5), Math.min(lines.length, i + 8)).join('\n'));
+            }
+          }
+          JS
+
       - name: Check browser JavaScript syntax
         run: |
           python - <<'PY'
