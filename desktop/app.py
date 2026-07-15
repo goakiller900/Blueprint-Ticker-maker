@@ -44,7 +44,7 @@ class BlueprintTickerApp(tk.Tk):
         self.preview_job: str | None = None
 
         self.mode_var = tk.StringVar(value=MODE_LABELS["lamp-compact"])
-        self.message_var = tk.StringVar(value="GOAKILLER900 IS GAY")
+        self.message_var = tk.StringVar(value="THE FACTORY GROWS!!")
         self.seconds_var = tk.StringVar(value="0.20")
         self.direction_var = tk.StringVar(value="left")
         self.width_var = tk.StringVar(value="24")

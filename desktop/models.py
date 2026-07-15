@@ -11,7 +11,7 @@ Direction = Literal["left", "right"]
 
 @dataclass(slots=True)
 class TickerConfig:
-    message: str = "GOAKILLER900 IS GAY"
+    message: str = "THE FACTORY GROWS!!"
     mode: Mode = "lamp-compact"
     seconds_per_step: float = 0.2
     direction: Direction = "left"

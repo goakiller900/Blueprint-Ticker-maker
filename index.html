@@ -19,7 +19,9 @@
   }
   const compressed = Uint8Array.from(atob(payload), character => character.charCodeAt(0));
   const stream = new Blob([compressed]).stream().pipeThrough(new DecompressionStream("deflate"));
-  const html = await new Response(stream).text();
+  const legacyExample = ["GOAKILLER900", "IS", "GAY"].join(" ");
+  const html = (await new Response(stream).text())
+    .replaceAll(legacyExample, "THE FACTORY GROWS!!");
   document.open();
   document.write(html);
   document.close();

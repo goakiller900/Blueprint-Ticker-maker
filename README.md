@@ -86,7 +86,7 @@ frames × ceil(display_width / 30) frame deciders
 + display_width arithmetic decoders
 ```
 
-For the original 24×7 `GOAKILLER900 IS GAY` test:
+For the original 24×7 `THE FACTORY GROWS!!` test:
 
 | Architecture | Lamps | Memory deciders | Column decoders | Total entities |
 |---|---:|---:|---:|---:|
