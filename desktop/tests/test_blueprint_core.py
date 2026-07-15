@@ -82,7 +82,15 @@ class BlueprintCoreTests(unittest.TestCase):
             "ftplib",
             "telnetlib",
         }
-        for filename in ("app.py", "blueprint_core.py"):
+        runtime_files = (
+            "app.py",
+            "blueprint_core.py",
+            "catalog.py",
+            "common.py",
+            "generators.py",
+            "models.py",
+        )
+        for filename in runtime_files:
             tree = ast.parse((DESKTOP / filename).read_text(encoding="utf-8"))
             imports: set[str] = set()
             for node in ast.walk(tree):
