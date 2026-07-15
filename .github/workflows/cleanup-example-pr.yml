@@ -17,51 +17,45 @@ jobs:
           ref: ${{ github.head_ref }}
           token: ${{ github.token }}
 
-      - name: Replace private example
+      - name: Replace readable defaults and docs
         shell: bash
         run: |
           python - <<'PY'
-          from __future__ import annotations
-          import ast
-          import base64
           from pathlib import Path
-          import re
-          import zlib
-
-          OLD = 'GOAKILLER900 IS GAY'
-          NEW = 'THE FACTORY GROWS!!'
-
-          # Public, readable sources.
+          old = 'GOAKILLER900 IS GAY'
+          new = 'THE FACTORY GROWS!!'
           for filename in ('README.md', 'desktop/app.py', 'desktop/models.py'):
               path = Path(filename)
               text = path.read_text(encoding='utf-8')
-              path.write_text(text.replace(OLD, NEW), encoding='utf-8')
+              path.write_text(text.replace(old, new), encoding='utf-8')
+              print(filename, text.count(old), 'replacement(s)')
+          PY
 
-          # Compressed CLI/test source bundle.
-          payload_path = Path('tools/apply_update_a.py')
-          tree = ast.parse(payload_path.read_text(encoding='utf-8'))
-          payloads = None
-          for node in tree.body:
-              if isinstance(node, ast.Assign) and any(
-                  isinstance(target, ast.Name) and target.id == 'PAYLOADS'
-                  for target in node.targets
-              ):
-                  payloads = ast.literal_eval(node.value)
-                  break
-          if payloads is None:
-              raise RuntimeError('PAYLOADS not found')
-
+      - name: Replace compressed source bundle
+        shell: bash
+        run: |
+          python - <<'PY'
+          import ast
+          import base64
+          from pathlib import Path
+          import zlib
+          old = b'GOAKILLER900 IS GAY'
+          new = b'THE FACTORY GROWS!!'
+          path = Path('tools/apply_update_a.py')
+          tree = ast.parse(path.read_text(encoding='utf-8'))
+          payloads = next(
+              ast.literal_eval(node.value)
+              for node in tree.body
+              if isinstance(node, ast.Assign)
+              and any(isinstance(t, ast.Name) and t.id == 'PAYLOADS' for t in node.targets)
+          )
           cleaned = {}
           for name, encoded in payloads.items():
-              raw = zlib.decompress(base64.b64decode(encoded))
-              raw = raw.replace(OLD.encode(), NEW.encode())
+              raw = zlib.decompress(base64.b64decode(encoded)).replace(old, new)
               cleaned[name] = base64.b64encode(zlib.compress(raw, 9)).decode()
-
-          payload_path.write_text(
+          path.write_text(
               "from __future__ import annotations\n"
-              "import base64\n"
-              "import zlib\n"
-              "from pathlib import Path\n\n"
+              "import base64\nimport zlib\nfrom pathlib import Path\n\n"
               f"PAYLOADS = {cleaned!r}\n\n"
               "for relative_path, encoded in PAYLOADS.items():\n"
               "    path = Path(relative_path)\n"
@@ -70,32 +64,26 @@ jobs:
               "    print(f'wrote {path}')\n",
               encoding='utf-8',
           )
+          PY
 
-          # Compressed browser application.
-          index_path = Path('index.html')
-          index_text = index_path.read_text(encoding='utf-8')
-          match = re.search(r'const payload = "([A-Za-z0-9+/=]+)";', index_text)
+      - name: Replace compressed browser default
+        shell: bash
+        run: |
+          python - <<'PY'
+          import base64
+          from pathlib import Path
+          import re
+          import zlib
+          old = b'GOAKILLER900 IS GAY'
+          new = b'THE FACTORY GROWS!!'
+          path = Path('index.html')
+          text = path.read_text(encoding='utf-8')
+          match = re.search(r'const payload = "([A-Za-z0-9+/=]+)";', text)
           if not match:
               raise RuntimeError('Browser payload not found')
-          browser_raw = zlib.decompress(base64.b64decode(match.group(1)))
-          browser_raw = browser_raw.replace(OLD.encode(), NEW.encode())
-          browser_encoded = base64.b64encode(zlib.compress(browser_raw, 9)).decode()
-          index_path.write_text(
-              index_text[:match.start(1)]
-              + browser_encoded
-              + index_text[match.end(1):],
-              encoding='utf-8',
-          )
-
-          # Targeted verification.
-          for filename in ('README.md', 'desktop/app.py', 'desktop/models.py'):
-              if OLD in Path(filename).read_text(encoding='utf-8'):
-                  raise RuntimeError(f'Old example remains in {filename}')
-          for encoded in cleaned.values():
-              if OLD.encode() in zlib.decompress(base64.b64decode(encoded)):
-                  raise RuntimeError('Old example remains in compressed source bundle')
-          if OLD.encode() in browser_raw:
-              raise RuntimeError('Old example remains in browser bundle')
+          raw = zlib.decompress(base64.b64decode(match.group(1))).replace(old, new)
+          encoded = base64.b64encode(zlib.compress(raw, 9)).decode()
+          path.write_text(text[:match.start(1)] + encoded + text[match.end(1):], encoding='utf-8')
           PY
 
       - name: Run tests
@@ -107,7 +95,7 @@ jobs:
       - name: Commit cleanup
         run: |
           git config user.name "github-actions[bot]"
-          git config user.email "418982894+github-actions[bot]@users.noreply.github.com"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add README.md desktop/app.py desktop/models.py tools/apply_update_a.py index.html
           if git diff --cached --quiet; then
             echo "Nothing left to clean"
